@@ -5,6 +5,7 @@
   Modified Tejada
 */
 
+#include <NewPing.h>
 #include <Servo.h>
 #include <Wire.h>
 
@@ -26,6 +27,10 @@ const int ECHO_PIN_2 = 12;
 const int IR_PIN = 13;
 
 // Ultrasonic
+NewPing sonar[2] = {   // Sensor object array.
+  NewPing(9, 10, 200), // Each sensor's trigger pin, echo pin, and max distance to ping. 
+  NewPing(11, 12, 200)
+};
 boolean ultrasonic_1_init = true;
 
 // IR
@@ -105,7 +110,7 @@ void loop() {
 		// Force timer to be 0
 		currentMillis = 0;
 	}
-	
+
 	isObstacle = digitalRead(IR_PIN);
 	// Whenever IR pin has detected something
 	if (isObstacle == LOW && !relayOff) {
@@ -114,7 +119,7 @@ void loop() {
 	}
 
 	// Handle IR response
-	if ((currentMillis - previousMillisRPM) >= 5000 && (currentMillis - previousMillisRPM) <= 5500 && !relayOff) {
+	if ((currentMillis - previousMillisRPM) >= 20000 && (currentMillis - previousMillisRPM) <= 25000 && !relayOff) {
 		// Relay off
 		digitalWrite(RELAY_PIN, HIGH);
 
@@ -126,14 +131,38 @@ void loop() {
 	}
 
 	// Servo will only work if machine is in active state
-	if (ultrasonic_1_init && machineActive) {
-		// First ultrasonic
-		firstUltrasonic();
+	for (uint8_t i = 0; i < 2; i++) { // Loop through each sensor and display results.
+		delay(50); // Wait 50ms between pings (about 20 pings/sec). 29ms should be the shortest delay between pings.
+		Serial.print(i);
+		Serial.print("=");
+		Serial.print(sonar[i].ping_cm());
+		Serial.print("cm ");
+
+		if (sonar[0].ping_cm() <= 21 && ultrasonic_1_init && machineActive) {
+			servo.write(135);
+
+			ultrasonic_1_init = false;
+		}
+		else if (sonar[1].ping_cm() <= 21 && !ultrasonic_1_init && machineActive) {
+			servo.write(45);
+
+			ultrasonic_1_init = true;
+
+			// Turn RELAY_PIN off
+			digitalWrite(RELAY_PIN, HIGH);
+			relayOff = true;
+
+			// Disable all activities until HC-05 sends ON
+			permaOff = true;
+
+			// Notify
+			Serial.print(F("Notifying recipient..."));
+			SendTo("9162277397", "WARNING: BINS ARE FULL");
+			Serial.println(F("OK"));
+		}
 	}
-	else if (!ultrasonic_1_init && machineActive) {
-		// Second ultrasonic
-		secondUltrasonic();
-	}
+
+	Serial.println();
 }
 
 void SendTo(char *number, String message) {
