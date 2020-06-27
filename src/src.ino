@@ -1,8 +1,8 @@
 /*
   Thrash collector
 
-  Created Tejada
-  Modified Tejada
+  Created Kim Aurellano
+  Modified Kim Aurellano
 */
 
 #include <NewPing.h>
